@@ -16,6 +16,17 @@ from catboost import CatBoostClassifier
 # Import the HF helper (will read HF_TOKEN via os.getenv inside the helper)
 from llm_local import safe_generate_tip
 
+import streamlit as st
+import os
+
+# This reads from secrets.toml automatically on Streamlit Cloud
+hf_token = st.secrets["HF_TOKEN"]
+model_name = st.secrets["HF_MODEL"]
+
+# Now set it as environment variable so huggingface_hub picks it up
+os.environ["HF_TOKEN"] = hf_token
+# or os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token  # some libraries use this name
+
 # ---------- Page config ----------
 st.set_page_config(page_title="Smart Spending Advisor (Customer-level)", page_icon="💳", layout="centered")
 st.title("💳 Smart Spending Advisor — Customer-targeted Recommendations")
