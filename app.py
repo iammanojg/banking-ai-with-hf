@@ -1,43 +1,40 @@
-# app.py — FINAL WORKING VERSION (no syntax errors)
+# app.py — TOP OF FILE — REPLACE EVERYTHING ABOVE YOUR IMPORTS WITH THIS
 
 import streamlit as st
 import os
+
+# ==================== CRITICAL: LOAD SECRETS FIRST ====================
+# This MUST be the very first thing after importing streamlit
+# (Streamlit loads secrets only when st.secrets is accessed)
+try:
+    # This line forces Streamlit Cloud to load .streamlit/secrets.toml
+    os.environ["HF_TOKEN"] = st.secrets["HF_TOKEN"]
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HF_TOKEN"]
+except Exception as e:
+    st.error(
+        "HF_TOKEN is missing or secrets.toml not loaded!\n\n"
+        "1. Make sure the file exists exactly at:\n"
+        "   https://github.com/iammanojg/Banking-AI-with-HF/blob/main/.streamlit/secrets.toml\n\n"
+        "2. Content must be exactly:\n"
+        "```toml\n"
+        "HF_TOKEN = \"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\"\n"
+        "HF_MODEL = \"HuggingFaceH4/zephyr-7b-beta\"\n"
+        "```"
+    )
+    st.stop()
+
+# Optional: show success (remove later if you want)
+# st.success("Hugging Face token loaded successfully!")
+
+# NOW safe to import everything else
+from dotenv import load_dotenv
+load_dotenv()  # only helps locally
+from llm_local import safe_generate_tip
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from catboost import CatBoostClassifier
-
-# ==================== 1. HUGGING FACE TOKEN SETUP ====================
-# Try Streamlit secrets first (Streamlit Cloud)
-if hasattr(st, "secrets"):
-    try:
-        os.environ["HF_TOKEN"] = st.secrets["HF_TOKEN"]
-        os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HF_TOKEN"]
-    except KeyError:
-        pass
-
-# Load .env for local development only
-from dotenv import load_dotenv
-load_dotenv()
-
-# Final check — if token is missing → stop with clear message
-if not os.environ.get("HF_TOKEN") or not os.environ["HF_TOKEN"].startswith("hf_"):
-    st.error(
-        "HF_TOKEN is missing!\n\n"
-        "Fix it by creating the file exactly at:\n"
-        ".streamlit/secrets.toml   (in your repo root)\n\n"
-        "With this content:\n"
-        'HF_TOKEN = "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"\n'
-        'HF_MODEL = "meta-llama/Llama-3.2-3B-Instruct"'
-    )
-    st.stop()
-
-# Optional model name
-HF_MODEL = os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct")
-
-# Now import your LLM helper
-from llm_local import safe_generate_tip
 
 # ==================== 2. PAGE CONFIG ====================
 st.set_page_config(page_title="Smart Spending Advisor", page_icon="💳", layout="centered")
