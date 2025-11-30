@@ -39,7 +39,7 @@ def generate_with_hf_inference(customer_summary: dict, max_tokens: int = 150, te
         raise RuntimeError("HF_TOKEN not set in environment.")
 
     prompt = _prompt_for_customer(customer_summary)
-    api_url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+    api_url = f"https://router.huggingface.co/hf-inference/{HF_MODEL}"
 
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {
