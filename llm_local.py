@@ -1,4 +1,4 @@
-# llm_local.py — FINAL BULLETPROOF VERSION (No More Errors!)
+# llm_local.py — FINAL, BULLETPROOF VERSION (Chat Completions API)
 
 import os
 import streamlit as st
@@ -16,38 +16,34 @@ STATIC_FALLBACK = {
 HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
 HF_MODEL = os.getenv("HF_MODEL", "gpt2")
 
-# ------------------- PROMPT -------------------
+# ------------------- PROMPT (Now as Chat Message) -------------------
 def _prompt_for_customer(summary: dict) -> str:
     summary_str = ", ".join(f"{k}: {v}" for k, v in summary.items())
-    prompt = (
+    return (
         "You are a friendly, concise financial advisor. Write a short, natural recommendation (40–100 words) "
         "encouraging this customer to consider a rewards Credit Card. Highlight 1–2 benefits based on their behavior. "
         "End with a clear call-to-action. Never mention personal data.\n\n"
         f"Customer behavior: {summary_str}\n\n"
         "Recommendation:"
     )
-    return prompt
 
-# ------------------- HF INFERENCE CALL (FIXED: Provider in Client Only) -------------------
+# ------------------- HF CHAT COMPLETIONS CALL (NEW OFFICIAL METHOD) -------------------
 def generate_with_hf_inference(customer_summary: dict, max_tokens: int = 150, temperature: float = 0.7) -> str:
     if not HF_TOKEN:
         raise RuntimeError("HF_TOKEN not set in environment.")
 
-    # FIXED: Provider goes HERE in client constructor (not in text_generation)
-    client = InferenceClient(token=HF_TOKEN, provider="hf-inference")
+    client = InferenceClient(token=HF_TOKEN)
     prompt = _prompt_for_customer(customer_summary)
 
-    result = client.text_generation(
-        prompt,
+    # FIXED: Use chat.completions.create (the unified 2025 endpoint)
+    completion = client.chat.completions.create(
         model=HF_MODEL,
-        max_new_tokens=max_tokens,
-        temperature=temperature,
-        do_sample=True,
-        return_full_text=False
-        # ← No 'provider' here — that's the error!
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=temperature
     )
 
-    return result.strip()
+    return completion.choices[0].message.content.strip()
 
 # ------------------- SAFE PUBLIC FUNCTION -------------------
 @st.cache_data(show_spinner=False, ttl=60*60)
