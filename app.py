@@ -65,28 +65,39 @@ def load_csv(uploaded_file):
 # ==================== 4. FEATURE ENGINEERING ====================
 def featurize_tx(df):
     df = df.copy()
+    
+    # Fix column names — handle common variations
+    column_mapping = {
+        'total spent': 'Total_Spent',
+        'Total Spent': 'Total_Spent',
+        'total_spent': 'Total_Spent',
+        'Amount': 'Total_Spent',
+        'amount': 'Total_Spent',
+        'Spent': 'Total_Spent',
+        'spent': 'Total_Spent',
+        'Total Amount': 'Total_Spent',
+        'Transaction Amount': 'Total_Spent'
+    }
+    df = df.rename(columns=lambda x: column_mapping.get(x.strip(), x))
+    
+    # Now safely create Total_Spent
+    if 'Total_Spent' not in df.columns:
+        # Try to find any column that looks like money
+        money_cols = [c for c in df.columns if any(word in c.lower() for word in ['spent', 'amount', 'total', 'price'])]
+        if money_cols:
+            df['Total_Spent'] = pd.to_numeric(df[money_cols[0]], errors='coerce').fillna(0)
+        else:
+            df['Total_Spent'] = 0.0
+    else:
+        df['Total_Spent'] = pd.to_numeric(df['Total_Spent'], errors='coerce').fillna(0)
+    
+    # Date
     if 'Transaction Date' in df.columns:
         df['Transaction Date'] = pd.to_datetime(df['Transaction Date'], errors='coerce')
-    if 'Total Spent' in df.columns:
-        df['Total_Spent'] = pd.to_numeric(df['Total_Spent'], errors='coerce').fillna(0)
+    elif 'Date' in df.columns:
+        df['Transaction Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    
     return df
-
-def build_customer_features(tx_df):
-    tx = featurize_tx(tx_df)
-    rows = []
-    for cust, group in tx.groupby("Customer ID", dropna=False):
-        if pd.isna(cust) or str(cust).strip() == "": 
-            continue
-        rows.append({
-            "Customer ID": cust,
-            "total_tx": len(group),
-            "total_spent": group["Total_Spent"].sum(),
-            "avg_spent": group["Total_Spent"].mean() if len(group) > 0 else 0,
-            "top_category": group["Category"].mode().iloc[0] if not group["Category"].empty else "Unknown",
-            "primary_payment": group["Payment Method"].mode().iloc[0] if not group["Payment Method"].empty else "Unknown",
-        })
-    return pd.DataFrame(rows)
-
 # ==================== 5. TRAIN MODEL ====================
 @st.cache_resource(show_spinner="Training model...")
 def train_model(tx_df):
