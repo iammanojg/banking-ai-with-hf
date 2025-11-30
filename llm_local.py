@@ -1,4 +1,4 @@
-# llm_local.py — FINAL, BULLETPROOF VERSION (Chat Completions API)
+# llm_local.py — ULTIMATE FINAL VERSION (Raw Text Gen + Correct Model)
 
 import os
 import streamlit as st
@@ -14,36 +14,39 @@ STATIC_FALLBACK = {
 
 # ------------------- READ TOKEN CORRECTLY -------------------
 HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
-HF_MODEL = os.getenv("HF_MODEL", "gpt2")
+HF_MODEL = os.getenv("HF_MODEL", "openai-community/gpt2")
 
-# ------------------- PROMPT (Now as Chat Message) -------------------
+# ------------------- PROMPT -------------------
 def _prompt_for_customer(summary: dict) -> str:
     summary_str = ", ".join(f"{k}: {v}" for k, v in summary.items())
-    return (
+    prompt = (
         "You are a friendly, concise financial advisor. Write a short, natural recommendation (40–100 words) "
         "encouraging this customer to consider a rewards Credit Card. Highlight 1–2 benefits based on their behavior. "
         "End with a clear call-to-action. Never mention personal data.\n\n"
         f"Customer behavior: {summary_str}\n\n"
         "Recommendation:"
     )
+    return prompt
 
-# ------------------- HF CHAT COMPLETIONS CALL (NEW OFFICIAL METHOD) -------------------
+# ------------------- HF TEXT GENERATION CALL (BACK TO RAW + BASE_URL) -------------------
 def generate_with_hf_inference(customer_summary: dict, max_tokens: int = 150, temperature: float = 0.7) -> str:
     if not HF_TOKEN:
         raise RuntimeError("HF_TOKEN not set in environment.")
 
-    client = InferenceClient(token=HF_TOKEN)
+    # FIXED: Use base_url for legacy text-gen endpoint (avoids router issues)
+    client = InferenceClient(token=HF_TOKEN, base_url="https://api-inference.huggingface.co")
     prompt = _prompt_for_customer(customer_summary)
 
-    # FIXED: Use chat.completions.create (the unified 2025 endpoint)
-    completion = client.chat.completions.create(
+    result = client.text_generation(
+        prompt,
         model=HF_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature
+        max_new_tokens=max_tokens,
+        temperature=temperature,
+        do_sample=True,
+        return_full_text=False
     )
 
-    return completion.choices[0].message.content.strip()
+    return result.strip()
 
 # ------------------- SAFE PUBLIC FUNCTION -------------------
 @st.cache_data(show_spinner=False, ttl=60*60)
