@@ -1,8 +1,9 @@
-# llm_local.py — FINAL WORKING VERSION (Streamlit Cloud + Local)
+# llm_local.py — FIXED WITH InferenceClient (Official HF 2025 Method)
 
 import os
 import streamlit as st
 import requests
+from huggingface_hub import InferenceClient  # ← NEW: Official client
 
 # ------------------- STATIC FALLBACKS -------------------
 STATIC_FALLBACK = {
@@ -13,12 +14,8 @@ STATIC_FALLBACK = {
 }
 
 # ------------------- READ TOKEN CORRECTLY -------------------
-# Streamlit Cloud uses HF_TOKEN → we also support the LangChain name
 HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
-
-# Use a FAST, FREE, always-working model by default
-HF_MODEL = os.getenv("HF_MODEL", "HuggingFaceH4/zephyr-7b-beta")  # ← super fast & excellent
-
+HF_MODEL = os.getenv("HF_MODEL", "HuggingFaceH4/zephyr-7b-beta")
 
 # ------------------- PROMPT -------------------
 def _prompt_for_customer(summary: dict) -> str:
@@ -32,37 +29,24 @@ def _prompt_for_customer(summary: dict) -> str:
     )
     return prompt
 
-
-# ------------------- HF INFERENCE CALL -------------------
+# ------------------- HF INFERENCE CALL (NEW OFFICIAL METHOD) -------------------
 def generate_with_hf_inference(customer_summary: dict, max_tokens: int = 150, temperature: float = 0.7) -> str:
     if not HF_TOKEN:
         raise RuntimeError("HF_TOKEN not set in environment.")
 
+    client = InferenceClient(token=HF_TOKEN)  # Handles routing automatically
     prompt = _prompt_for_customer(customer_summary)
-    api_url = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
 
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": max_tokens,
-            "temperature": temperature,
-            "return_full_text": False
-        }
-    }
+    result = client.text_generation(
+        prompt,
+        model=HF_MODEL,
+        max_new_tokens=max_tokens,
+        temperature=temperature,
+        do_sample=True,
+        return_full_text=False
+    )
 
-    response = requests.post(api_url, headers=headers, json=payload, timeout=60)
-    if response.status_code != 200:
-        raise RuntimeError(f"HF API error {response.status_code}: {response.text}")
-
-    data = response.json()
-    if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-        return data[0]["generated_text"].strip()
-    elif isinstance(data, dict) and "generated_text" in data:
-        return data["generated_text"].strip()
-    else:
-        return str(data).strip()
-
+    return result.strip()
 
 # ------------------- SAFE PUBLIC FUNCTION -------------------
 @st.cache_data(show_spinner=False, ttl=60*60)  # cache 1 hour
